@@ -34,3 +34,29 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+# SwiftBox
+
+A multi-city package courier web application with live GPS tracking, real-time chat, and smart driver assignment.
+
+## Tech Stack
+
+- **Frontend** — Next.js 14 (App Router), React, TypeScript, Tailwind CSS
+- **Auth** — NextAuth.js v5 (email/password)
+- **Database** — MongoDB Atlas + Mongoose
+- **Real-time** — Socket.io (live GPS, chat, notifications)
+- **Maps** — Leaflet.js + OpenStreetMap (free)
+- **Email** — Resend
+- **Push Notifications** — Web Push API
+
+## Features
+
+- Customer registration and login
+- Package booking with price calculator
+- Live GPS driver tracking on map
+- Real-time chat between customer and driver
+- Smart driver assignment using geospatial queries
+- Push and email notifications
+- Recurring delivery subscriptions
+- Admin dashboard with analytics
