@@ -4,6 +4,7 @@ import Link from "next/link"
 import connectDB from "@/lib/db"
 import Order from "@/models/Order"
 import Navbar from "@/components/ui/Navbar"
+import DashboardCharts from "./DashboardCharts"
 
 const CustomerDashboard = async () => {
     const session = await auth()
@@ -27,6 +28,11 @@ const CustomerDashboard = async () => {
         status: { $in: ["pending", "assigned", "picked_up", "in_transit"] },
     })
 
+    const cancelledOrders = await Order.countDocuments({
+        customerId: session.user.id,
+        status: "cancelled",
+    })
+
     const activeOrder = await Order.findOne({
         customerId: session.user.id,
         status: { $in: ["assigned", "picked_up", "in_transit"] },
@@ -39,11 +45,67 @@ const CustomerDashboard = async () => {
         .limit(5)
         .lean()
 
+    const statusData = [
+        { name: "Pending", value: pendingOrders, color: "#F59E0B" },
+        { name: "Delivered", value: deliveredOrders, color: "#10B981" },
+        { name: "Cancelled", value: cancelledOrders, color: "#EF4444" },
+    ]
+
+    const smallOrders = await Order.countDocuments({
+        customerId: session.user.id,
+        "packageDetails.size": "small",
+    })
+    const mediumOrders = await Order.countDocuments({
+        customerId: session.user.id,
+        "packageDetails.size": "medium",
+    })
+    const largeOrders = await Order.countDocuments({
+        customerId: session.user.id,
+        "packageDetails.size": "large",
+    })
+
+    const sizeData = [
+        { name: "Small", value: smallOrders },
+        { name: "Medium", value: mediumOrders },
+        { name: "Large", value: largeOrders },
+    ]
+
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date()
+        date.setDate(date.getDate() - (6 - i))
+        return {
+            date: date.toLocaleDateString("en-IN", { weekday: "short" }),
+            fullDate: date,
+        }
+    })
+
+    const weeklyData = await Promise.all(
+        last7Days.map(async ({ date, fullDate }) => {
+            const start = new Date(fullDate)
+            start.setHours(0, 0, 0, 0)
+            const end = new Date(fullDate)
+            end.setHours(23, 59, 59, 999)
+
+            const count = await Order.countDocuments({
+                customerId: session.user.id,
+                createdAt: { $gte: start, $lte: end },
+            })
+
+            return { date, orders: count }
+        })
+    )
+
+    const weightData = [
+        { size: "Small", avgWeight: 1 },
+        { size: "Medium", avgWeight: 3 },
+        { size: "Large", avgWeight: 8 },
+    ]
+
     return (
         <div className="min-h-screen bg-gray-50">
             <Navbar />
 
-            <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+            <div className="w-full px-6 py-8 space-y-6">
 
                 {activeOrder && (
                     <Link href={`/track/${(activeOrder as any)._id}`}>
@@ -57,7 +119,8 @@ const CustomerDashboard = async () => {
                                     {(activeOrder as any).dropoff?.address}
                                 </p>
                                 <p className="text-xs opacity-75 mt-1 capitalize">
-                                    Status: {(activeOrder as any).status?.replace("_", " ")}
+                                    Status:{" "}
+                                    {(activeOrder as any).status?.replace("_", " ")}
                                 </p>
                             </div>
                             <span className="text-xl">→</span>
@@ -65,23 +128,29 @@ const CustomerDashboard = async () => {
                     </Link>
                 )}
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                     <div className="bg-white rounded-xl border border-gray-100 p-5">
                         <p className="text-xs text-gray-400 mb-1">Total orders</p>
-                        <p className="text-2xl font-semibold text-gray-900">
+                        <p className="text-3xl font-semibold text-gray-900">
                             {totalOrders}
                         </p>
                     </div>
                     <div className="bg-white rounded-xl border border-gray-100 p-5">
                         <p className="text-xs text-gray-400 mb-1">Delivered</p>
-                        <p className="text-2xl font-semibold text-green-500">
+                        <p className="text-3xl font-semibold text-green-500">
                             {deliveredOrders}
                         </p>
                     </div>
                     <div className="bg-white rounded-xl border border-gray-100 p-5">
                         <p className="text-xs text-gray-400 mb-1">In progress</p>
-                        <p className="text-2xl font-semibold text-amber-500">
+                        <p className="text-3xl font-semibold text-amber-500">
                             {pendingOrders}
+                        </p>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-100 p-5">
+                        <p className="text-xs text-gray-400 mb-1">Cancelled</p>
+                        <p className="text-3xl font-semibold text-red-500">
+                            {cancelledOrders}
                         </p>
                     </div>
                 </div>
@@ -89,20 +158,17 @@ const CustomerDashboard = async () => {
                 <div className="grid grid-cols-2 gap-4">
                     <Link href="/book" className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl p-5 transition" >
                         <p className="font-semibold mb-1">Book a delivery</p>
-                        <p className="text-sm opacity-75">
-                            Send a package anywhere
-                        </p>
+                        <p className="text-sm opacity-75">Send a package anywhere</p>
                     </Link>
-
-                    <Link href="/subscriptions" className="bg-white hover:bg-gray-50 border border-gray-100 rounded-xl p-5 transition" >
-                        <p className="font-semibold text-gray-900 mb-1">
-                            Subscriptions
-                        </p>
+                    <Link href="/subscriptions" className="bg-white hover:bg-gray-50 border border-gray-100 rounded-xl p-5 transition">
+                        <p className="font-semibold text-gray-900 mb-1">Subscriptions</p>
                         <p className="text-sm text-gray-400">
                             Manage recurring deliveries
                         </p>
                     </Link>
                 </div>
+
+                <DashboardCharts statusData={statusData} sizeData={sizeData} weeklyData={weeklyData} weightData={weightData} />
 
                 <div className="bg-white rounded-xl border border-gray-100">
                     <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -111,10 +177,8 @@ const CustomerDashboard = async () => {
 
                     {recentOrders.length === 0 ? (
                         <div className="px-6 py-16 text-center">
-                            <p className="text-gray-400 text-sm mb-4">
-                                No orders yet
-                            </p>
-                            <Link href="/book" className="text-sm text-blue-600 hover:underline"  >
+                            <p className="text-gray-400 text-sm mb-4">No orders yet</p>
+                            <Link href="/book" className="text-sm text-blue-600 hover:underline" >
                                 Book your first delivery
                             </Link>
                         </div>
@@ -127,11 +191,14 @@ const CustomerDashboard = async () => {
                                             {order.pickup?.address} → {order.dropoff?.address}
                                         </p>
                                         <p className="text-xs text-gray-400 mt-0.5">
-                                            {new Date(order.createdAt).toLocaleDateString("en-IN", {
-                                                day: "numeric",
-                                                month: "short",
-                                                year: "numeric",
-                                            })}
+                                            {new Date(order.createdAt).toLocaleDateString(
+                                                "en-IN",
+                                                {
+                                                    day: "numeric",
+                                                    month: "short",
+                                                    year: "numeric",
+                                                }
+                                            )}
                                         </p>
                                     </div>
                                     <StatusBadge status={order.status} />
