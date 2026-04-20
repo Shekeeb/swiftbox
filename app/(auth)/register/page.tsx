@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import axios from "axios"
+import Loader from "@/components/ui/Loader"
 
 const RegisterPage = () => {
   const router = useRouter()
@@ -128,8 +129,8 @@ const RegisterPage = () => {
             </p>
           )}
 
-          <button type="submit" disabled={loading} className="w-full bg-blue-600 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed mt-2"  >
-            {loading ? "Creating account..." : "Create account"}
+          <button type="submit" disabled={loading} className="w-full h-10 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed mt-2"  >
+            {loading ? <Loader /> : "Create account"}
           </button>
         </form>
 
