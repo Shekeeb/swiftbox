@@ -187,8 +187,9 @@ const CustomerDashboard = async () => {
                             {recentOrders.map((order: any) => (
                                 <Link key={order._id.toString()} href={`/track/${order._id}`} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition" >
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900">
-                                            {order.pickup?.address} → {order.dropoff?.address}
+                                        <p className="text-sm font-medium text-gray-900"> {order.city} </p>
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            {order.pickup?.address?.split(",")[0]} → {order.dropoff?.address?.split(",")[0]}
                                         </p>
                                         <p className="text-xs text-gray-400 mt-0.5">
                                             {new Date(order.createdAt).toLocaleDateString(
