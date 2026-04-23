@@ -1,6 +1,4 @@
-// proxy.ts  ← same as middleware.ts but renamed for Next.js 16
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 
 export default auth(function middleware(req: any) {

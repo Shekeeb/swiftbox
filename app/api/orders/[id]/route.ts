@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import connectDB from "@/lib/db"
 import Order from "@/models/Order"
+import Driver from "@/models/Driver"
 
 const GET = async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
@@ -29,7 +30,7 @@ const GET = async (req: NextRequest, { params }: { params: Promise<{ id: string 
     }
 }
 
-const PATCH = async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+const PATCH = async (  req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
         const session = await auth()
         if (!session) {
@@ -38,7 +39,7 @@ const PATCH = async (req: NextRequest, { params }: { params: Promise<{ id: strin
 
         const { id } = await params
         const body = await req.json()
-        const { status, rating, ratingComment } = body
+        const { status, rating, ratingComment, driverId } = body
 
         await connectDB()
 
@@ -55,6 +56,15 @@ const PATCH = async (req: NextRequest, { params }: { params: Promise<{ id: strin
         if (rating) order.rating = rating
         if (ratingComment) order.ratingComment = ratingComment
         if (status === "delivered") order.deliveredAt = new Date()
+
+        if (driverId) {
+            const driver = await Driver.findById(driverId)
+            if (driver) {
+                order.driverId = driver._id
+                driver.activeOrderId = order._id
+                await driver.save()
+            }
+        }
 
         await order.save()
 
