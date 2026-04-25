@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { io, Socket } from "socket.io-client"
 import axios from "axios"
-import { Power } from "lucide-react"
+import { Power, Send } from "lucide-react"
+import Loader from "@/components/ui/Loader"
 
 interface Order {
   _id: string
@@ -20,6 +21,11 @@ interface Order {
   }
 }
 
+interface Message {
+  senderRole: string
+  message: string
+}
+
 interface Props {
   driverId: string
   isOnline: boolean
@@ -33,8 +39,11 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
   const [isOnline, setIsOnline] = useState(initialOnline)
   const [loading, setLoading] = useState(false)
   const [acceptingId, setAcceptingId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [newMessage, setNewMessage] = useState("")
   const socketRef = useRef<Socket | null>(null)
   const watchIdRef = useRef<number | null>(null)
+  const chatBottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const socket = io(
@@ -42,8 +51,22 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
     )
     socketRef.current = socket
 
+    socket.on("connect", () => {
+      console.log("Driver socket connected:", socket.id)
+
+      if (activeOrder) {
+        socket.emit("track:join", activeOrder._id)
+        socket.emit("user:join", userId)
+        console.log("Driver joined order room:", activeOrder._id)
+      }
+    })
+
     socket.on("order:assigned", () => {
       router.refresh()
+    })
+
+    socket.on("chat:new", (msg: Message) => {
+      setMessages((prev) => [...prev, msg])
     })
 
     return () => {
@@ -60,6 +83,10 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
     return () => stopGPS()
   }, [isOnline, activeOrder])
 
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
   const startGPS = () => {
     if (!navigator.geolocation) return
 
@@ -73,7 +100,9 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
         (position) => {
           const { latitude: lat, longitude: lng } = position.coords
 
-          axios.patch("/api/driver/status", { currentLocation: { lat, lng }, })
+          axios.patch("/api/driver/status", {
+            currentLocation: { lat, lng },
+          })
 
           if (socketRef.current && activeOrder) {
             socketRef.current.emit("driver:location", {
@@ -81,6 +110,7 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
               lat,
               lng,
             })
+            console.log("GPS emitted:", lat, lng)
           }
         },
         (err) => {
@@ -140,6 +170,24 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
     }
   }
 
+  const sendMessage = () => {
+    if (!newMessage.trim() || !socketRef.current || !activeOrder) return
+    socketRef.current.emit("chat:message", {
+      orderId: activeOrder._id,
+      sender: userId,
+      senderRole: "driver",
+      message: newMessage.trim(),
+    })
+    setNewMessage("")
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-gray-100 p-6 flex items-center justify-between">
@@ -148,7 +196,9 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
             {isOnline ? "You are online" : "You are offline"}
           </p>
           <p className="text-sm text-gray-400 mt-0.5">
-            {isOnline ? "You can receive delivery orders" : "Go online to start receiving orders"}
+            {isOnline
+              ? "You can receive delivery orders"
+              : "Go online to start receiving orders"}
           </p>
         </div>
         <button onClick={toggleOnline} disabled={loading} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-sm transition disabled:opacity-50 ${isOnline ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`} >
@@ -156,7 +206,6 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
           {loading ? "..." : isOnline ? "Go offline" : "Go online"}
         </button>
       </div>
-
       {activeOrder && (
         <div className="bg-white rounded-xl border border-blue-200 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -216,15 +265,52 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
               </button>
             )}
             {activeOrder.status === "picked_up" && (
-              <button onClick={() => updateOrderStatus(activeOrder._id, "in_transit")} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-sm font-medium transition">
+              <button onClick={() => updateOrderStatus(activeOrder._id, "in_transit")} className="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2.5 rounded-lg text-sm font-medium transition"  >
                 Mark as in transit
               </button>
             )}
             {activeOrder.status === "in_transit" && (
-              <button onClick={() => updateOrderStatus(activeOrder._id, "delivered")} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-medium transition">
+              <button onClick={() => updateOrderStatus(activeOrder._id, "delivered")} className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg text-sm font-medium transition" >
                 Mark as delivered
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {activeOrder && (
+        <div className="bg-white rounded-xl border border-gray-100">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h3 className="text-sm font-medium text-gray-900">
+              Chat with customer
+            </h3>
+          </div>
+
+          <div className="h-56 overflow-y-auto px-6 py-4 space-y-3">
+            {messages.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">
+                No messages yet
+              </p>
+            ) : (
+              messages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.senderRole === "driver" ? "justify-end" : "justify-start"}`}  >
+                  <div className={`max-w-xs px-4 py-2.5 rounded-2xl text-sm ${msg.senderRole === "driver" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-900"}`} >
+                    <p>{msg.message}</p>
+                    <p className={`text-xs mt-1 ${msg.senderRole === "driver" ? "text-blue-200" : "text-gray-400"}`}  >
+                      {msg.senderRole === "driver" ? "You" : "Customer"}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+            <div ref={chatBottomRef} />
+          </div>
+
+          <div className="px-4 py-3 border-t border-gray-100 flex gap-2">
+            <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={handleKeyDown} placeholder="Type a message..." className="flex-1 border border-gray-200 rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+            <button onClick={sendMessage} disabled={!newMessage.trim()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition disabled:opacity-40"   >
+              <Send size={16} />
+            </button>
           </div>
         </div>
       )}
@@ -260,9 +346,7 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
                         {order.packageDetails?.size}
                       </span>
                       {order.packageDetails?.fragile && (
-                        <span className="text-xs text-red-500">
-                          Fragile
-                        </span>
+                        <span className="text-xs text-red-500">Fragile</span>
                       )}
                     </div>
                   </div>
@@ -270,8 +354,8 @@ const DriverDashboardClient = ({ driverId, isOnline: initialOnline, activeOrder,
                     <p className="text-sm font-semibold text-green-600 mb-2">
                       ₹{order.price}
                     </p>
-                    <button onClick={() => acceptOrder(order._id)} disabled={acceptingId === order._id} className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg transition disabled:opacity-50" >
-                      {acceptingId === order._id ? "..." : "Accept"}
+                    <button onClick={() => acceptOrder(order._id)} disabled={acceptingId === order._id} className="bg-blue-600 hover:bg-blue-700 text-white text-xs w-16 h-8 rounded-lg transition disabled:opacity-50"  >
+                      {acceptingId === order._id ? <Loader/> : "Accept"}
                     </button>
                   </div>
                 </div>

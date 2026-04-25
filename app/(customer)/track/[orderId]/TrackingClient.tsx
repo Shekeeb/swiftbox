@@ -45,6 +45,7 @@ const TrackingClient = ({ orderId, status, userId, userRole, pickupCoords, dropo
         socket.on("connect", () => {
             setConnected(true)
             socket.emit("track:join", orderId)
+            socket.emit("user:join", userId) 
         })
 
         socket.on("disconnect", () => setConnected(false))
