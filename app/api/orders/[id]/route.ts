@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth"
 import connectDB from "@/lib/db"
 import Order from "@/models/Order"
 import Driver from "@/models/Driver"
+import notifyUser from "@/lib/notify"
+import User from "@/models/User"
 
 const GET = async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
@@ -30,7 +32,7 @@ const GET = async (req: NextRequest, { params }: { params: Promise<{ id: string 
     }
 }
 
-const PATCH = async (  req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+const PATCH = async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
     try {
         const session = await auth()
         if (!session) {
@@ -67,6 +69,37 @@ const PATCH = async (  req: NextRequest, { params }: { params: Promise<{ id: str
         }
 
         await order.save()
+
+        if (status === "picked_up") {
+            await notifyUser({
+                userId: order.customerId.toString(),
+                orderId: order._id.toString(),
+                type: "picked_up",
+                message: "Your package has been picked up! Track it live on the map.",
+            })
+        }
+
+        if (status === "delivered") {
+            await notifyUser({
+                userId: order.customerId.toString(),
+                orderId: order._id.toString(),
+                type: "delivered",
+                message: "Your package has been delivered! Thank you for using SwiftBox.",
+                extraData: { price: order.price },
+            })
+        }
+
+        if (status === "assigned" && driverId) {
+            const driver = await Driver.findById(driverId)
+            const driverUser = driver ? await User.findById(driver.userId) : null
+            await notifyUser({
+                userId: order.customerId.toString(),
+                orderId: order._id.toString(),
+                type: "driver_assigned",
+                message: `Driver ${driverUser?.name || "assigned"} is on the way!`,
+                extraData: { driverName: driverUser?.name || "Your driver" },
+            })
+        }
 
         return NextResponse.json({ order })
     } catch (error: any) {

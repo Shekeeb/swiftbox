@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import connectDB from "@/lib/db"
 import Order from "@/models/Order"
-import Notification from "@/models/Notification"
 import Driver from "@/models/Driver"
+import notifyUser from "@/lib/notify"
 
 const calculatePrice = (weight: number, size: string, fragile: boolean): number => {
     const base = 50
@@ -15,36 +15,36 @@ const calculatePrice = (weight: number, size: string, fragile: boolean): number 
 }
 
 const GET = async (req: NextRequest) => {
-  try {
-    const session = await auth()
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    try {
+        const session = await auth()
+        if (!session) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        }
+
+        await connectDB()
+
+        const { searchParams } = new URL(req.url)
+        const forDriver = searchParams.get("driver") === "true"
+
+        let orders
+
+        if (forDriver && session.user.role === "driver") {
+            const driver = await Driver.findOne({ userId: session.user.id })
+            if (!driver) return NextResponse.json({ orders: [] })
+
+            orders = await Order.find({ driverId: driver._id })
+                .sort({ createdAt: -1 })
+                .lean()
+        } else {
+            orders = await Order.find({ customerId: session.user.id })
+                .sort({ createdAt: -1 })
+                .lean()
+        }
+
+        return NextResponse.json({ orders })
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
     }
-
-    await connectDB()
-
-    const { searchParams } = new URL(req.url)
-    const forDriver = searchParams.get("driver") === "true"
-
-    let orders
-
-    if (forDriver && session.user.role === "driver") {
-      const driver = await Driver.findOne({ userId: session.user.id })
-      if (!driver) return NextResponse.json({ orders: [] })
-
-      orders = await Order.find({ driverId: driver._id })
-        .sort({ createdAt: -1 })
-        .lean()
-    } else {
-      orders = await Order.find({ customerId: session.user.id })
-        .sort({ createdAt: -1 })
-        .lean()
-    }
-
-    return NextResponse.json({ orders })
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
 }
 
 const POST = async (req: NextRequest) => {
@@ -123,12 +123,12 @@ const POST = async (req: NextRequest) => {
             isSubscription: false,
         })
 
-        await Notification.create({
+        await notifyUser({
             userId: session.user.id,
-            orderId: order._id,
+            orderId: order._id.toString(),
             type: "order_placed",
-            message: `Order placed successfully! Finding a driver near ${city}...`,
-            read: false,
+            message: `Order placed! Finding a driver near ${city}...`,
+            extraData: { city, price },
         })
 
         return NextResponse.json(
