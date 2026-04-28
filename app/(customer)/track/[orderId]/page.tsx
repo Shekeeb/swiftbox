@@ -4,6 +4,7 @@ import connectDB from "@/lib/db"
 import Order from "@/models/Order"
 import Link from "next/link"
 import TrackingClient from "./TrackingClient"
+import RatingCard from "./RatingCard"
 
 const statusSteps = [
     { key: "pending", label: "Order placed" },
@@ -172,6 +173,9 @@ const TrackPage = async ({ params, }: { params: Promise<{ orderId: string }> }) 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-4">
                         <StatusSteps status={orderData.status} />
+                        {orderData.status === "delivered" && !orderData.rating && (
+                            <RatingCard orderId={orderData._id.toString()} />
+                        )}
                     </div>
 
                     <div>
