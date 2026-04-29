@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import SessionWrapper from "@/components/ui/SessionWrapper"
+import PushNotificationSetup from "@/components/ui/PushNotificationSetup"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -14,7 +15,10 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <html lang="en">
       <body className={inter.className}>
-        <SessionWrapper>{children}</SessionWrapper>
+        <SessionWrapper>
+          <PushNotificationSetup />
+          {children}
+        </SessionWrapper>
       </body>
     </html>
   )
