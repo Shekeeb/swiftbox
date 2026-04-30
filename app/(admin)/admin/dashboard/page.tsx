@@ -12,7 +12,8 @@ const AdminDashboard = async () => {
     const session = await auth()
 
     if (!session || !session.user) redirect("/login")
-    if (session.user.role !== "admin") redirect("/dashboard")
+    const user = session.user as { id: string; name: string; email: string; role: string }
+    if (user.role !== "admin") redirect("/dashboard")
 
     await connectDB()
 
@@ -60,7 +61,7 @@ const AdminDashboard = async () => {
                     </span>
                 </h1>
                 <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-500">{session.user?.name}</span>
+                    <span className="text-sm text-gray-500">{user?.name}</span>
                     <AdminSignOut />
                 </div>
             </nav>
