@@ -9,37 +9,43 @@ import DashboardCharts from "./DashboardCharts"
 const CustomerDashboard = async () => {
     const session = await auth()
 
-    if (!session) redirect("/login")
-    if (session.user.role !== "customer") redirect("/driver/dashboard")
+    if (!session || !session.user) redirect("/login")
+    const user = session.user as {
+        id: string
+        name: string
+        email: string
+        role: string
+    }
+    if (user.role !== "customer") redirect("/driver/dashboard")
 
     await connectDB()
 
     const totalOrders = await Order.countDocuments({
-        customerId: session.user.id,
+        customerId: user.id,
     })
 
     const deliveredOrders = await Order.countDocuments({
-        customerId: session.user.id,
+        customerId: user.id,
         status: "delivered",
     })
 
     const pendingOrders = await Order.countDocuments({
-        customerId: session.user.id,
+        customerId: user.id,
         status: { $in: ["pending", "assigned", "picked_up", "in_transit"] },
     })
 
     const cancelledOrders = await Order.countDocuments({
-        customerId: session.user.id,
+        customerId: user.id,
         status: "cancelled",
     })
 
     const activeOrder = await Order.findOne({
-        customerId: session.user.id,
+        customerId: user.id,
         status: { $in: ["assigned", "picked_up", "in_transit"] },
     }).lean()
 
     const recentOrders = await Order.find({
-        customerId: session.user.id,
+        customerId: user.id,
     })
         .sort({ createdAt: -1 })
         .limit(5)
@@ -52,15 +58,15 @@ const CustomerDashboard = async () => {
     ]
 
     const smallOrders = await Order.countDocuments({
-        customerId: session.user.id,
+        customerId: user.id,
         "packageDetails.size": "small",
     })
     const mediumOrders = await Order.countDocuments({
-        customerId: session.user.id,
+        customerId: user.id,
         "packageDetails.size": "medium",
     })
     const largeOrders = await Order.countDocuments({
-        customerId: session.user.id,
+        customerId: user.id,
         "packageDetails.size": "large",
     })
 
@@ -87,7 +93,7 @@ const CustomerDashboard = async () => {
             end.setHours(23, 59, 59, 999)
 
             const count = await Order.countDocuments({
-                customerId: session.user.id,
+                customerId: user.id,
                 createdAt: { $gte: start, $lte: end },
             })
 
@@ -160,7 +166,7 @@ const CustomerDashboard = async () => {
                         <p className="font-semibold mb-1">Book a delivery</p>
                         <p className="text-sm opacity-75">Send a package anywhere</p>
                     </Link>
-                    <Link href="/subscriptions" className="bg-white hover:bg-gray-50 border border-gray-100 rounded-xl p-5 transition">
+                    <Link href="/subscriptions" className="bg-white hover:bg-gray-50 border border-gray-100 rounded-xl p-5 transition" >
                         <p className="font-semibold text-gray-900 mb-1">Subscriptions</p>
                         <p className="text-sm text-gray-400">
                             Manage recurring deliveries
@@ -178,18 +184,21 @@ const CustomerDashboard = async () => {
                     {recentOrders.length === 0 ? (
                         <div className="px-6 py-16 text-center">
                             <p className="text-gray-400 text-sm mb-4">No orders yet</p>
-                            <Link href="/book" className="text-sm text-blue-600 hover:underline" >
+                            <Link href="/book" className="text-sm text-blue-600 hover:underline"   >
                                 Book your first delivery
                             </Link>
                         </div>
                     ) : (
                         <div className="divide-y divide-gray-50">
                             {recentOrders.map((order: any) => (
-                                <Link key={order._id.toString()} href={`/track/${order._id}`} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition" >
+                                <Link key={order._id.toString()} href={`/track/${order._id}`} className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition"  >
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900"> {order.city} </p>
+                                        <p className="text-sm font-medium text-gray-900">
+                                            {order.city}
+                                        </p>
                                         <p className="text-xs text-gray-400 mt-0.5">
-                                            {order.pickup?.address?.split(",")[0]} → {order.dropoff?.address?.split(",")[0]}
+                                            {order.pickup?.address?.split(",")[0]} →{" "}
+                                            {order.dropoff?.address?.split(",")[0]}
                                         </p>
                                         <p className="text-xs text-gray-400 mt-0.5">
                                             {new Date(order.createdAt).toLocaleDateString(
