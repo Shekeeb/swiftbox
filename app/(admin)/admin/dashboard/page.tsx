@@ -11,7 +11,7 @@ import AdminCharts from "./AdminCharts"
 const AdminDashboard = async () => {
     const session = await auth()
 
-    if (!session) redirect("/login")
+    if (!session || !session.user) redirect("/login")
     if (session.user.role !== "admin") redirect("/dashboard")
 
     await connectDB()
@@ -60,7 +60,7 @@ const AdminDashboard = async () => {
                     </span>
                 </h1>
                 <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-500">{session.user.name}</span>
+                    <span className="text-sm text-gray-500">{session.user?.name}</span>
                     <AdminSignOut />
                 </div>
             </nav>
