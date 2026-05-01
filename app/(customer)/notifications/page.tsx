@@ -6,17 +6,24 @@ import Link from "next/link"
 
 const NotificationsPage = async () => {
     const session = await auth()
-    if (!session) redirect("/login")
+    if (!session || !session.user) redirect("/login")
+
+    const user = session.user as {
+        id: string
+        name: string
+        email: string
+        role: string
+    }
 
     await connectDB()
 
     await Notification.updateMany(
-        { userId: session.user.id, read: false },
+        { userId: user.id, read: false },
         { read: true }
     )
 
     const notifications = await Notification.find({
-        userId: session.user.id,
+        userId: user.id,
     })
         .sort({ createdAt: -1 })
         .limit(50)
@@ -46,15 +53,13 @@ const NotificationsPage = async () => {
                 <div className="bg-white rounded-xl border border-gray-100 divide-y divide-gray-50">
                     {notifications.length === 0 ? (
                         <div className="px-6 py-16 text-center">
-                            <p className="text-gray-400 text-sm">
-                                No notifications yet
-                            </p>
+                            <p className="text-gray-400 text-sm">No notifications yet</p>
                         </div>
                     ) : (
                         notifications.map((n: any) => (
                             <div key={n._id.toString()} className="px-6 py-4">
                                 <div className="flex items-start gap-3">
-                                    <span className={`text-xs font-medium px-2 py-1 rounded-full flex-shrink-0 mt-0.5 ${typeColors[n.type] || "bg-gray-100 text-gray-600"}`}>
+                                    <span className={`text-xs font-medium px-2 py-1 rounded-full flex-shrink-0 mt-0.5 ${typeColors[n.type] || "bg-gray-100 text-gray-600"}`} >
                                         {n.type.replace(/_/g, " ")}
                                     </span>
                                     <div className="flex-1">
