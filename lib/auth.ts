@@ -1,8 +1,8 @@
-import NextAuth from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import connectDB from "./db";
-import User from "@/models/User";
+import NextAuth from "next-auth"
+import CredentialsProvider from "next-auth/providers/credentials"
+import bcrypt from "bcryptjs"
+import connectDB from "./db"
+import User from "@/models/User"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -15,30 +15,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          throw new Error("Email and password are required");
+          throw new Error("Email and password are required")
         }
 
-        await connectDB();
+        await connectDB()
 
         const user = await User.findOne({
           email: (credentials.email as string).toLowerCase(),
-        });
+        })
 
         if (!user) {
-          throw new Error("No account found with this email");
+          throw new Error("No account found with this email")
         }
 
         if (!user.password) {
-          throw new Error("Please login with Google");
+          throw new Error("Please login with Google")
         }
 
         const isPasswordCorrect = await bcrypt.compare(
           credentials.password as string,
           user.password
-        );
+        )
 
         if (!isPasswordCorrect) {
-          throw new Error("Incorrect password");
+          throw new Error("Incorrect password")
         }
 
         return {
@@ -46,7 +46,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: user.name,
           email: user.email,
           role: user.role,
-        };
+        }
       },
     }),
   ],
@@ -54,18 +54,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.role = (user as any).role;
+        token.id = user.id
+        token.role = (user as any).role
       }
-      return token;
+      return token
     },
 
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
+        ;(session.user as any).id = token.id as string
+        ;(session.user as any).role = token.role as string
       }
-      return session;
+      return session
     },
   },
 
@@ -78,4 +78,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     strategy: "jwt",
     maxAge: 7 * 24 * 60 * 60,
   },
-});
+})
