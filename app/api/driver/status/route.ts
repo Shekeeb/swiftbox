@@ -7,13 +7,15 @@ import User from "@/models/User"
 const GET = async (req: NextRequest) => {
   try {
     const session = await auth()
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const user = session.user as { id: string; role: string }
+
     await connectDB()
 
-    const driver = await Driver.findOne({ userId: session.user.id }).lean()
+    const driver = await Driver.findOne({ userId: user.id }).lean()
 
     return NextResponse.json({ driver })
   } catch (error: any) {
@@ -24,24 +26,26 @@ const GET = async (req: NextRequest) => {
 const PATCH = async (req: NextRequest) => {
   try {
     const session = await auth()
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const user = session.user as { id: string; name: string; role: string }
 
     const body = await req.json()
     const { isOnline, currentLocation } = body
 
     await connectDB()
 
-    let driver = await Driver.findOne({ userId: session.user.id })
+    let driver = await Driver.findOne({ userId: user.id })
 
     if (!driver) {
-      const user = await User.findById(session.user.id)
+      const dbUser = await User.findById(user.id)
       driver = await Driver.create({
-        userId: session.user.id,
-        name: user?.name || "Driver",
-        phone: user?.phone || "",
-        city: user?.city || "",
+        userId: user.id,
+        name: dbUser?.name || "Driver",
+        phone: dbUser?.phone || "",
+        city: dbUser?.city || "",
         isOnline: false,
       })
     }
