@@ -6,9 +6,11 @@ import Notification from "@/models/Notification"
 const GET = async (req: NextRequest) => {
   try {
     const session = await auth()
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const user = session.user as { id: string; role: string }
 
     const { searchParams } = new URL(req.url)
     const unreadOnly = searchParams.get("unread") === "true"
@@ -17,14 +19,14 @@ const GET = async (req: NextRequest) => {
 
     if (unreadOnly) {
       const count = await Notification.countDocuments({
-        userId: session.user.id,
+        userId: user.id,
         read: false,
       })
       return NextResponse.json({ count })
     }
 
     const notifications = await Notification.find({
-      userId: session.user.id,
+      userId: user.id,
     })
       .sort({ createdAt: -1 })
       .limit(50)
