@@ -7,7 +7,7 @@ const io = new Server(httpServer, {
   cors: {
     origin: [
       "http://localhost:3000",
-      process.env.NEXT_PUBLIC_APP_URL || "https://swiftbox.vercel.app",
+      process.env.NEXT_PUBLIC_APP_URL || "https://swiftbox-murex.vercel.app",
     ],
     methods: ["GET", "POST"],
   },
