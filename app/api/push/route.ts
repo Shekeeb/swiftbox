@@ -6,9 +6,11 @@ import PushSubscription from "@/models/PushSubscription"
 const POST = async (req: NextRequest) => {
   try {
     const session = await auth()
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const user = session.user as { id: string }
 
     const body = await req.json()
     const { subscription } = body
@@ -23,11 +25,8 @@ const POST = async (req: NextRequest) => {
     await connectDB()
 
     await PushSubscription.findOneAndUpdate(
-      { userId: session.user.id },
-      {
-        userId: session.user.id,
-        subscription,
-      },
+      { userId: user.id },
+      { userId: user.id, subscription },
       { upsert: true, new: true }
     )
 
@@ -40,13 +39,15 @@ const POST = async (req: NextRequest) => {
 const DELETE = async (req: NextRequest) => {
   try {
     const session = await auth()
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const user = session.user as { id: string }
+
     await connectDB()
 
-    await PushSubscription.findOneAndDelete({ userId: session.user.id })
+    await PushSubscription.findOneAndDelete({ userId: user.id })
 
     return NextResponse.json({ message: "Push subscription removed" })
   } catch (error: any) {

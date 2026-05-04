@@ -8,8 +8,7 @@ import notifyUser from "@/lib/notify"
 const calculatePrice = (weight: number, size: string, fragile: boolean): number => {
     const base = 50
     const weightCharge = weight * 20
-    const sizeCharge =
-        size === "large" ? 50 : size === "medium" ? 20 : 0
+    const sizeCharge = size === "large" ? 50 : size === "medium" ? 20 : 0
     const fragileCharge = fragile ? 30 : 0
     return Math.round(base + weightCharge + sizeCharge + fragileCharge)
 }
@@ -17,9 +16,11 @@ const calculatePrice = (weight: number, size: string, fragile: boolean): number 
 const GET = async (req: NextRequest) => {
     try {
         const session = await auth()
-        if (!session) {
+        if (!session || !session.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
+
+        const user = session.user as { id: string; role: string }
 
         await connectDB()
 
@@ -28,15 +29,15 @@ const GET = async (req: NextRequest) => {
 
         let orders
 
-        if (forDriver && session.user.role === "driver") {
-            const driver = await Driver.findOne({ userId: session.user.id })
+        if (forDriver && user.role === "driver") {
+            const driver = await Driver.findOne({ userId: user.id })
             if (!driver) return NextResponse.json({ orders: [] })
 
             orders = await Order.find({ driverId: driver._id })
                 .sort({ createdAt: -1 })
                 .lean()
         } else {
-            orders = await Order.find({ customerId: session.user.id })
+            orders = await Order.find({ customerId: user.id })
                 .sort({ createdAt: -1 })
                 .lean()
         }
@@ -50,11 +51,13 @@ const GET = async (req: NextRequest) => {
 const POST = async (req: NextRequest) => {
     try {
         const session = await auth()
-        if (!session) {
+        if (!session || !session.user) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
         }
 
-        if (session.user.role !== "customer") {
+        const user = session.user as { id: string; role: string }
+
+        if (user.role !== "customer") {
             return NextResponse.json(
                 { error: "Only customers can place orders" },
                 { status: 403 }
@@ -101,7 +104,7 @@ const POST = async (req: NextRequest) => {
         )
 
         const order = await Order.create({
-            customerId: session.user.id,
+            customerId: user.id,
             pickup: {
                 address: pickup.address,
                 coordinates: pickup.coordinates || [76.2144, 10.5276],
@@ -124,7 +127,7 @@ const POST = async (req: NextRequest) => {
         })
 
         await notifyUser({
-            userId: session.user.id,
+            userId: user.id,
             orderId: order._id.toString(),
             type: "order_placed",
             message: `Order placed! Finding a driver near ${city}...`,
